@@ -8,7 +8,8 @@ let currentMaterials = [];
 let queue = loadQueue();
 let debounceTimer = null;
 let invDebounceTimer = null;
-let invSelectedItem = null;  // item pending add to inventory
+let invSelectedItem = null;
+let calcSeq = 0;  // incremented on each calculate call; stale results are discarded
 
 // --- DOM refs ---
 const searchInput      = document.getElementById('search-input');
@@ -143,17 +144,18 @@ function profClass(prof) {
 quantityInput.addEventListener('change', () => { if (selectedItem) calculate(); });
 document.getElementById('qty-up').addEventListener('click', () => {
   quantityInput.value = Math.min(9999, Number(quantityInput.value) + 1);
-  if (selectedItem) calculate();
+  if (selectedItem) { clearTimeout(debounceTimer); debounceTimer = setTimeout(calculate, 150); }
 });
 document.getElementById('qty-down').addEventListener('click', () => {
   quantityInput.value = Math.max(1, Number(quantityInput.value) - 1);
-  if (selectedItem) calculate();
+  if (selectedItem) { clearTimeout(debounceTimer); debounceTimer = setTimeout(calculate, 150); }
 });
 
 // --- Core calculate ---
 async function calculate() {
   if (!selectedItem) return;
   const qty = Math.max(1, Number(quantityInput.value) || 1);
+  const seq = ++calcSeq;
 
   loadingEl.classList.remove('hidden');
   materialsSection.classList.add('hidden');
@@ -161,15 +163,17 @@ async function calculate() {
 
   try {
     const raw = await resolveItem(selectedItem.id, qty);
+    if (seq !== calcSeq) return;  // a newer call superseded this one
     currentMaterials = applyToMaterials(raw);
     renderMaterials(currentMaterials);
     renderShopping(currentMaterials);
   } catch (e) {
+    if (seq !== calcSeq) return;
     console.error('calculate failed:', e);
     materialList.innerHTML = `<div style="padding:16px;color:var(--red)">Failed to load recipe data. Check console for details.</div>`;
     materialsSection.classList.remove('hidden');
   } finally {
-    loadingEl.classList.add('hidden');
+    if (seq === calcSeq) loadingEl.classList.add('hidden');
   }
 }
 
@@ -343,6 +347,7 @@ function renderQueue() {
 
 async function calculateQueue() {
   if (!queue.length) return;
+  const seq = ++calcSeq;
   loadingEl.classList.remove('hidden');
   materialsSection.classList.add('hidden');
   shoppingSection.classList.add('hidden');
@@ -350,17 +355,18 @@ async function calculateQueue() {
     const allMaterials = [];
     for (const item of queue) {
       const raw = await resolveItem(item.id, item.quantity);
+      if (seq !== calcSeq) return;  // superseded
       allMaterials.push(...raw);
     }
-    // Merge across queue items
     const merged = mergeMaterials(allMaterials);
     currentMaterials = applyToMaterials(merged);
     renderMaterials(currentMaterials);
     renderShopping(currentMaterials);
   } catch (e) {
+    if (seq !== calcSeq) return;
     console.error('calculateQueue failed:', e);
   } finally {
-    loadingEl.classList.add('hidden');
+    if (seq === calcSeq) loadingEl.classList.add('hidden');
   }
 }
 
