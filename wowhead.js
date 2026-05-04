@@ -216,32 +216,26 @@ export async function searchItems(query) {
   const cached = cacheGet(key);
   if (cached) return cached;
 
-  // Always return local results immediately
+  // Return local results immediately — don't block on proxy
   const local = await localSearch(query);
-
-  // Try live search in background — if it returns more results, cache them
-  // But don't block the UI on it
-  try {
-    const url = `${BASE}/search?q=${encodeURIComponent(query)}&usesearchv2=1&opensearch=1`;
-    const text = await proxyFetch(url);
-    const data = JSON.parse(text);
-    if (Array.isArray(data) && data[1]) {
-      const names = data[1] || [];
-      const urls  = data[3] || [];
-      const results = names.slice(0, 12).map((name, i) => {
-        const m = (urls[i] || '').match(/item=(\d+)/);
-        return m ? { id: Number(m[1]), name } : null;
-      }).filter(Boolean);
-      if (results.length > 0) {
-        cacheSet(key, results, TTL_SEARCH);
-        return results;
-      }
-    }
-  } catch {
-    // proxy unavailable — use local results
-  }
-
   if (local.length > 0) cacheSet(key, local, TTL_SEARCH);
+
+  // Try live search in background — updates cache for next keystroke only
+  proxyFetch(`${BASE}/search?q=${encodeURIComponent(query)}&usesearchv2=1&opensearch=1`)
+    .then(text => {
+      const data = JSON.parse(text);
+      if (Array.isArray(data) && data[1]) {
+        const names = data[1] || [];
+        const urls  = data[3] || [];
+        const results = names.slice(0, 12).map((name, i) => {
+          const m = (urls[i] || '').match(/item=(\d+)/);
+          return m ? { id: Number(m[1]), name } : null;
+        }).filter(Boolean);
+        if (results.length > 0) cacheSet(key, results, TTL_SEARCH);
+      }
+    })
+    .catch(() => {});
+
   return local;
 }
 
@@ -250,8 +244,28 @@ export async function getItemData(itemId) {
   const cached = cacheGet(key);
   if (cached) return cached;
 
-  // nether API is CORS-enabled — no proxy needed, always works for name+icon
-  let netherData = null;
+  // Check bundled fallback first — instant, no network needed
+  const fb = await loadFallback();
+  const fbItem = fb.items[String(itemId)];
+  if (fbItem) {
+    cacheSet(key, fbItem, TTL_RECIPE);
+    // Enrich with nether name/icon in background (doesn't block caller)
+    netherEnrich(itemId, key, fbItem);
+    return fbItem;
+  }
+
+  // Not in fallback — try proxy for full XML data (has createdBy/recipe)
+  try {
+    const url  = `${BASE}/item=${itemId}&xml`;
+    const text = await proxyFetch(url);
+    const data = extractJson(text);
+    cacheSet(key, data, TTL_RECIPE);
+    return data;
+  } catch (e) {
+    console.warn(`getItemData(${itemId}) proxy failed:`, e.message);
+  }
+
+  // Last resort: nether API for name+icon only (no recipe data)
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -259,37 +273,28 @@ export async function getItemData(itemId) {
     clearTimeout(timer);
     if (resp.ok) {
       const d = await resp.json();
-      if (d.name) netherData = { id: itemId, name: d.name, icon: d.icon };
+      if (d.name) {
+        const result = { id: itemId, name: d.name, icon: d.icon };
+        cacheSet(key, result, TTL_RECIPE);
+        return result;
+      }
     }
   } catch {}
 
-  // Try proxy for full XML data (has createdBy/recipe)
-  try {
-    const url  = `${BASE}/item=${itemId}&xml`;
-    const text = await proxyFetch(url);
-    const data = extractJson(text);
-    const merged = netherData ? { ...data, name: netherData.name, icon: netherData.icon } : data;
-    cacheSet(key, merged, TTL_RECIPE);
-    return merged;
-  } catch (e) {
-    console.warn(`getItemData(${itemId}) proxy failed:`, e.message);
-  }
-
-  // Fall back to bundled data
-  const fb = await loadFallback();
-  const fbItem = fb.items[String(itemId)];
-  if (fbItem) {
-    const result = netherData ? { ...fbItem, name: netherData.name, icon: netherData.icon } : fbItem;
-    cacheSet(key, result, TTL_RECIPE);
-    return result;
-  }
-
-  if (netherData) {
-    cacheSet(key, netherData, TTL_RECIPE);
-    return netherData;
-  }
-
   return null;
+}
+
+function netherEnrich(itemId, cacheKey, existing) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  fetch(`https://nether.wowhead.com/classic/tooltip/item/${itemId}`, { signal: controller.signal })
+    .then(r => { clearTimeout(timer); return r.ok ? r.json() : null; })
+    .then(d => {
+      if (d?.name && (d.name !== existing.name || d.icon !== existing.icon)) {
+        cacheSet(cacheKey, { ...existing, name: d.name, icon: d.icon }, TTL_RECIPE);
+      }
+    })
+    .catch(() => { clearTimeout(timer); });
 }
 
 export async function getRecipe(spellId) {
