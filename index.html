@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WoW Classic Crafting Calculator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="header-title">
+        <span class="header-icon">&#9876;</span>
+        <h1>WoW Classic<span class="gold"> Crafting Calc</span></h1>
+      </div>
+      <div class="header-actions">
+        <span id="cache-stats" class="cache-stats"></span>
+        <button id="clear-cache-btn" class="btn-ghost">Clear Cache</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Search -->
+    <section class="search-section">
+      <div class="search-wrap">
+        <input type="text" id="search-input" class="search-input" placeholder="Search any craftable item across all professions..." autocomplete="off" spellcheck="false">
+        <div id="autocomplete" class="autocomplete hidden"></div>
+      </div>
+    </section>
+
+    <!-- Selected item + quantity -->
+    <section id="item-section" class="item-section hidden">
+      <div class="item-header">
+        <img id="item-icon" class="item-icon" src="" alt="">
+        <div class="item-meta">
+          <a id="item-name" class="item-name" href="#" target="_blank" rel="noopener"></a>
+          <span id="item-profession" class="profession-badge"></span>
+        </div>
+        <div class="quantity-wrap">
+          <label for="quantity-input">Quantity</label>
+          <div class="quantity-controls">
+            <button class="qty-btn" id="qty-down">-</button>
+            <input type="number" id="quantity-input" class="quantity-input" value="1" min="1" max="9999">
+            <button class="qty-btn" id="qty-up">+</button>
+          </div>
+        </div>
+        <button id="add-queue-btn" class="btn-secondary">+ Add to Queue</button>
+      </div>
+    </section>
+
+    <!-- Loading indicator -->
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <span>Fetching recipe data from WoWHead...</span>
+    </div>
+
+    <!-- Materials table -->
+    <section id="materials-section" class="materials-section hidden">
+      <div class="section-header">
+        <h2>Materials Required</h2>
+        <button id="clear-inventory-btn" class="btn-ghost">Clear Inventory</button>
+      </div>
+      <div class="materials-legend">
+        <span>Item</span><span>Required</span><span>On Hand</span><span>Still Need</span><span>Craft?</span>
+      </div>
+      <div id="material-list"></div>
+    </section>
+
+    <!-- Shopping list -->
+    <section id="shopping-section" class="shopping-section hidden">
+      <div class="section-header">
+        <h2>Shopping List</h2>
+        <button id="copy-list-btn" class="btn-secondary">Copy to Clipboard</button>
+      </div>
+      <div id="shopping-list"></div>
+    </section>
+
+    <!-- Queue -->
+    <section id="queue-section" class="queue-section hidden">
+      <div class="section-header">
+        <h2>Craft Queue</h2>
+        <button id="clear-queue-btn" class="btn-ghost">Clear Queue</button>
+      </div>
+      <div id="queue-list"></div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>Recipe data from <a href="https://www.wowhead.com/classic" target="_blank" rel="noopener">WoWHead Classic</a></span>
+    <span>Data is cached locally for 7 days</span>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
