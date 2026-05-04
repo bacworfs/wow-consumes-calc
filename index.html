@@ -87,6 +87,29 @@
       <div id="queue-list"></div>
     </section>
 
+    <!-- Inventory Manager -->
+    <section id="inv-panel" class="inv-panel">
+      <div class="section-header inv-panel-header" id="inv-panel-toggle">
+        <h2>My Materials <span class="inv-count" id="inv-count"></span></h2>
+        <span class="inv-toggle-arrow" id="inv-arrow">&#9660;</span>
+      </div>
+      <div id="inv-panel-body">
+        <p class="inv-hint">Log what you already have. These amounts carry over to any item you calculate.</p>
+        <div class="inv-add-row">
+          <div class="inv-search-wrap">
+            <input type="text" id="inv-search" class="inv-search-input" placeholder="Search item to add..." autocomplete="off">
+            <div id="inv-autocomplete" class="autocomplete hidden"></div>
+          </div>
+          <input type="number" id="inv-qty-input" class="inv-qty" placeholder="Qty" min="1">
+          <button id="inv-add-btn" class="btn-secondary">Add</button>
+        </div>
+        <div id="inv-list"></div>
+        <div class="inv-footer" id="inv-footer" style="display:none">
+          <button id="inv-clear-all-btn" class="btn-ghost">Clear All</button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <footer>

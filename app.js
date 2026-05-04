@@ -1,12 +1,14 @@
 import { searchItems, getItemData, clearCache, getCacheStats, iconUrl } from './wowhead.js';
 import { resolveItem, setCraftToggle, getCraftToggle } from './resolver.js';
-import { setInventory, getInventory, clearInventory, applyToMaterials } from './inventory.js';
+import { setInventory, getInventory, clearInventory, applyToMaterials, getAll } from './inventory.js';
 
 // --- State ---
 let selectedItem = null;
 let currentMaterials = [];
 let queue = loadQueue();
 let debounceTimer = null;
+let invDebounceTimer = null;
+let invSelectedItem = null;  // item pending add to inventory
 
 // --- DOM refs ---
 const searchInput      = document.getElementById('search-input');
@@ -25,9 +27,21 @@ const queueSection     = document.getElementById('queue-section');
 const queueListEl      = document.getElementById('queue-list');
 const cacheStatsEl     = document.getElementById('cache-stats');
 
+// Inventory panel refs
+const invPanel         = document.getElementById('inv-panel');
+const invPanelToggle   = document.getElementById('inv-panel-toggle');
+const invSearch        = document.getElementById('inv-search');
+const invAutocomplete  = document.getElementById('inv-autocomplete');
+const invQtyInput      = document.getElementById('inv-qty-input');
+const invAddBtn        = document.getElementById('inv-add-btn');
+const invList          = document.getElementById('inv-list');
+const invCount         = document.getElementById('inv-count');
+const invFooter        = document.getElementById('inv-footer');
+
 // --- Init ---
 updateCacheStats();
 renderQueue();
+renderInvPanel();
 
 // --- Search ---
 searchInput.addEventListener('input', () => {
@@ -188,11 +202,23 @@ function renderMaterials(materials) {
     materialList.appendChild(row);
   });
 
-  // Inventory inputs
+  // Inventory inputs — also update the inv panel and store meta for panel display
   materialList.querySelectorAll('.on-hand-input').forEach(input => {
     input.addEventListener('input', () => {
-      setInventory(Number(input.dataset.id), Number(input.value));
+      const id = Number(input.dataset.id);
+      setInventory(id, Number(input.value));
+      // Store display meta so inventory panel shows the name
+      const row = input.closest('.material-row');
+      const name = row?.querySelector('.material-name')?.textContent;
+      const imgSrc = row?.querySelector('.material-icon')?.src;
+      const icon = imgSrc ? imgSrc.split('/').pop().replace('.jpg', '') : null;
+      if (name) {
+        const meta = loadInvMeta();
+        meta[id] = { name, icon };
+        saveInvMeta(meta);
+      }
       refreshNeeded();
+      renderInvPanel();
     });
   });
 
@@ -260,13 +286,6 @@ document.getElementById('copy-list-btn').addEventListener('click', () => {
   });
 });
 
-// --- Clear inventory ---
-document.getElementById('clear-inventory-btn').addEventListener('click', () => {
-  clearInventory();
-  materialList.querySelectorAll('.on-hand-input').forEach(i => { i.value = ''; });
-  currentMaterials = applyToMaterials(currentMaterials);
-  refreshNeeded();
-});
 
 // --- Queue ---
 document.getElementById('add-queue-btn').addEventListener('click', () => {
@@ -376,3 +395,186 @@ function updateCacheStats() {
   const { entries } = getCacheStats();
   cacheStatsEl.textContent = entries ? `${entries} cached` : '';
 }
+
+// --- Inventory Panel ---
+
+invPanelToggle.addEventListener('click', () => {
+  invPanel.classList.toggle('collapsed');
+});
+
+// Inventory search autocomplete
+invSearch.addEventListener('input', () => {
+  clearTimeout(invDebounceTimer);
+  invSelectedItem = null;
+  const q = invSearch.value.trim();
+  if (!q || q.length < 2) { hideInvAutocomplete(); return; }
+  invDebounceTimer = setTimeout(async () => {
+    const results = await searchItems(q);
+    renderInvAutocomplete(results);
+  }, 200);
+});
+
+invSearch.addEventListener('keydown', e => {
+  const items = invAutocomplete.querySelectorAll('.autocomplete-item');
+  const active = invAutocomplete.querySelector('.autocomplete-item.active');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = active ? active.nextElementSibling : items[0];
+    if (next) { active?.classList.remove('active'); next.classList.add('active'); }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = active?.previousElementSibling;
+    if (prev) { active.classList.remove('active'); prev.classList.add('active'); }
+  } else if (e.key === 'Enter') {
+    if (active) active.click();
+    else if (invSelectedItem) addInvItem();
+  } else if (e.key === 'Escape') {
+    hideInvAutocomplete();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.inv-search-wrap')) hideInvAutocomplete();
+});
+
+function renderInvAutocomplete(results) {
+  invAutocomplete.innerHTML = '';
+  if (!results.length) { hideInvAutocomplete(); return; }
+  results.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'autocomplete-item';
+    el.innerHTML = `<span class="autocomplete-item-name">${item.name}</span><span class="autocomplete-item-id">#${item.id}</span>`;
+    el.addEventListener('click', () => {
+      invSelectedItem = item;
+      invSearch.value = item.name;
+      hideInvAutocomplete();
+      invQtyInput.focus();
+    });
+    invAutocomplete.appendChild(el);
+  });
+  invAutocomplete.classList.remove('hidden');
+}
+
+function hideInvAutocomplete() {
+  invAutocomplete.classList.add('hidden');
+  invAutocomplete.innerHTML = '';
+}
+
+invAddBtn.addEventListener('click', addInvItem);
+
+invQtyInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addInvItem();
+});
+
+async function addInvItem() {
+  if (!invSelectedItem) return;
+  const qty = Math.max(1, Number(invQtyInput.value) || 1);
+  setInventory(invSelectedItem.id, getInventory(invSelectedItem.id) + qty);
+  // Store name+icon for display
+  const stored = loadInvMeta();
+  if (!stored[invSelectedItem.id]) {
+    stored[invSelectedItem.id] = { name: invSelectedItem.name, icon: null };
+    // Try to get icon from item data (non-blocking)
+    getItemData(invSelectedItem.id).then(data => {
+      if (data?.icon) {
+        const s = loadInvMeta();
+        if (s[invSelectedItem.id]) { s[invSelectedItem.id].icon = data.icon; saveInvMeta(s); }
+      }
+    }).catch(() => {});
+    saveInvMeta(stored);
+  }
+  invSearch.value = '';
+  invQtyInput.value = '';
+  invSelectedItem = null;
+  renderInvPanel();
+  if (currentMaterials.length) refreshNeeded();
+}
+
+function loadInvMeta() {
+  try { return JSON.parse(localStorage.getItem('wow-inv-meta') || '{}'); }
+  catch { return {}; }
+}
+function saveInvMeta(data) {
+  localStorage.setItem('wow-inv-meta', JSON.stringify(data));
+}
+
+function renderInvPanel() {
+  const inv = getAll();
+  const meta = loadInvMeta();
+  const entries = Object.entries(inv);
+
+  invCount.textContent = entries.length ? `(${entries.length} item${entries.length !== 1 ? 's' : ''})` : '';
+  invFooter.style.display = entries.length ? '' : 'none';
+  invList.innerHTML = '';
+
+  if (!entries.length) {
+    invList.innerHTML = '<div class="inv-empty">No materials logged yet. Search above to add some.</div>';
+    return;
+  }
+
+  entries.forEach(([idStr, qty]) => {
+    const id = Number(idStr);
+    const info = meta[id] || { name: `Item #${id}`, icon: null };
+    const row = document.createElement('div');
+    row.className = 'inv-item-row';
+
+    const iconHtml = info.icon
+      ? `<img class="inv-item-icon" src="${iconUrl(info.icon)}" alt="" onerror="this.style.visibility='hidden'">`
+      : '<div class="inv-item-icon" style="background:var(--panel-alt);border-radius:3px"></div>';
+
+    row.innerHTML = `
+      ${iconHtml}
+      <span class="inv-item-name">${info.name}</span>
+      <input type="number" class="inv-item-qty" value="${qty}" min="0" data-id="${id}">
+      <button class="inv-item-remove" data-id="${id}" title="Remove">&#x2715;</button>
+    `;
+    invList.appendChild(row);
+  });
+
+  invList.querySelectorAll('.inv-item-qty').forEach(input => {
+    input.addEventListener('change', () => {
+      const id = Number(input.dataset.id);
+      const val = Number(input.value);
+      if (val <= 0) {
+        setInventory(id, 0);
+        const m = loadInvMeta();
+        delete m[id];
+        saveInvMeta(m);
+        renderInvPanel();
+      } else {
+        setInventory(id, val);
+        renderInvPanel();
+      }
+      if (currentMaterials.length) refreshNeeded();
+    });
+  });
+
+  invList.querySelectorAll('.inv-item-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id);
+      setInventory(id, 0);
+      const m = loadInvMeta();
+      delete m[id];
+      saveInvMeta(m);
+      renderInvPanel();
+      if (currentMaterials.length) refreshNeeded();
+    });
+  });
+}
+
+document.getElementById('inv-clear-all-btn').addEventListener('click', () => {
+  clearInventory();
+  localStorage.removeItem('wow-inv-meta');
+  renderInvPanel();
+  if (currentMaterials.length) refreshNeeded();
+});
+
+// Keep "Clear Inventory" button in materials section in sync
+document.getElementById('clear-inventory-btn').addEventListener('click', () => {
+  clearInventory();
+  localStorage.removeItem('wow-inv-meta');
+  materialList.querySelectorAll('.on-hand-input').forEach(i => { i.value = ''; });
+  currentMaterials = applyToMaterials(currentMaterials);
+  refreshNeeded();
+  renderInvPanel();
+});
