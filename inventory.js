@@ -1,12 +1,14 @@
-const KEY = 'wow-calc-inventory';
+import { userKey } from './user.js';
+
+function key() { return userKey('inventory'); }
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(key()) || '{}'); }
   catch { return {}; }
 }
 
 function save(inv) {
-  localStorage.setItem(KEY, JSON.stringify(inv));
+  localStorage.setItem(key(), JSON.stringify(inv));
 }
 
 export function setInventory(itemId, qty) {
@@ -26,7 +28,7 @@ export function getAll() {
 }
 
 export function clearInventory() {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem(key());
 }
 
 export function applyToMaterials(materials) {

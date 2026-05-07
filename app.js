@@ -1,6 +1,7 @@
 import { searchItems, getItemData, clearCache, getCacheStats, iconUrl } from './wowhead.js';
 import { resolveItem, setCraftToggle, getCraftToggle } from './resolver.js';
 import { setInventory, getInventory, clearInventory, applyToMaterials, getAll } from './inventory.js';
+import { getUser, setUser, userKey } from './user.js';
 
 // --- State ---
 let selectedItem = null;
@@ -40,9 +41,7 @@ const invCount         = document.getElementById('inv-count');
 const invFooter        = document.getElementById('inv-footer');
 
 // --- Init ---
-updateCacheStats();
-renderQueue();
-renderInvPanel();
+initUser();
 
 // --- Search ---
 searchInput.addEventListener('input', () => {
@@ -380,11 +379,11 @@ function mergeMaterials(materials) {
 }
 
 function saveQueue() {
-  localStorage.setItem('wow-calc-queue', JSON.stringify(queue));
+  localStorage.setItem(userKey('queue'), JSON.stringify(queue));
 }
 
 function loadQueue() {
-  try { return JSON.parse(localStorage.getItem('wow-calc-queue') || '[]'); }
+  try { return JSON.parse(localStorage.getItem(userKey('queue')) || '[]'); }
   catch { return []; }
 }
 
@@ -497,11 +496,12 @@ async function addInvItem() {
 }
 
 function loadInvMeta() {
-  try { return JSON.parse(localStorage.getItem('wow-inv-meta') || '{}'); }
+  try { return JSON.parse(localStorage.getItem(userKey('inv-meta')) || '{}'); }
   catch { return {}; }
 }
+
 function saveInvMeta(data) {
-  localStorage.setItem('wow-inv-meta', JSON.stringify(data));
+  localStorage.setItem(userKey('inv-meta'), JSON.stringify(data));
 }
 
 function renderInvPanel() {
@@ -570,7 +570,7 @@ function renderInvPanel() {
 
 document.getElementById('inv-clear-all-btn').addEventListener('click', () => {
   clearInventory();
-  localStorage.removeItem('wow-inv-meta');
+  localStorage.removeItem(userKey('inv-meta'));
   renderInvPanel();
   if (currentMaterials.length) refreshNeeded();
 });
@@ -578,9 +578,61 @@ document.getElementById('inv-clear-all-btn').addEventListener('click', () => {
 // Keep "Clear Inventory" button in materials section in sync
 document.getElementById('clear-inventory-btn').addEventListener('click', () => {
   clearInventory();
-  localStorage.removeItem('wow-inv-meta');
+  localStorage.removeItem(userKey('inv-meta'));
   materialList.querySelectorAll('.on-hand-input').forEach(i => { i.value = ''; });
   currentMaterials = applyToMaterials(currentMaterials);
   refreshNeeded();
   renderInvPanel();
+});
+
+// --- User / identifier system ---
+
+function initUser() {
+  if (getUser()) {
+    onUserReady();
+  } else {
+    showUserModal();
+  }
+}
+
+function onUserReady() {
+  renderUserBadge();
+  updateCacheStats();
+  queue = loadQueue();
+  renderQueue();
+  renderInvPanel();
+}
+
+function showUserModal() {
+  const modal = document.getElementById('user-modal');
+  const input = document.getElementById('user-modal-input');
+  const btn   = document.getElementById('user-modal-btn');
+  modal.classList.remove('hidden');
+  setTimeout(() => input.focus(), 50);
+
+  function confirm() {
+    const name = input.value.trim();
+    if (!name) return;
+    setUser(name);
+    modal.classList.add('hidden');
+    onUserReady();
+  }
+
+  btn.addEventListener('click', confirm);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirm(); });
+}
+
+function renderUserBadge() {
+  const badge = document.getElementById('user-badge');
+  const label = document.getElementById('user-badge-label');
+  if (!badge) return;
+  label.textContent = getUser();
+  badge.classList.remove('hidden');
+}
+
+document.getElementById('user-switch-btn')?.addEventListener('click', () => {
+  const input = document.getElementById('user-modal-input');
+  if (input) input.value = '';
+  document.getElementById('user-badge')?.classList.add('hidden');
+  showUserModal();
 });

@@ -8,6 +8,17 @@
 </head>
 <body>
 
+  <!-- User identifier modal -->
+  <div id="user-modal" class="user-modal-overlay hidden">
+    <div class="user-modal">
+      <div class="user-modal-icon">&#9876;</div>
+      <h2>Who are you?</h2>
+      <p>Enter your character name to load your collection.</p>
+      <input type="text" id="user-modal-input" class="user-modal-input" placeholder="Character name..." maxlength="24" autocomplete="off" spellcheck="false">
+      <button id="user-modal-btn" class="btn-primary">Let's go</button>
+    </div>
+  </div>
+
   <header>
     <div class="header-inner">
       <div class="header-title">
@@ -15,6 +26,10 @@
         <h1>WoW Classic<span class="gold"> Crafting Calc</span></h1>
       </div>
       <div class="header-actions">
+        <div id="user-badge" class="user-badge hidden">
+          <span id="user-badge-label"></span>
+          <button id="user-switch-btn" class="user-switch-btn" title="Switch character">&#8645;</button>
+        </div>
         <span id="cache-stats" class="cache-stats"></span>
         <button id="clear-cache-btn" class="btn-ghost">Clear Cache</button>
       </div>

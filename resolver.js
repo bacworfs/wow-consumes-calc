@@ -1,16 +1,17 @@
 import { getItemData, getRecipe } from './wowhead.js';
+import { userKey } from './user.js';
 
-const TOGGLES_KEY = 'wow-craft-toggles';
+function togglesKey() { return userKey('toggles'); }
 
 function loadToggles() {
-  try { return JSON.parse(localStorage.getItem(TOGGLES_KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(togglesKey()) || '{}'); }
   catch { return {}; }
 }
 
 export function setCraftToggle(itemId, shouldCraft) {
   const t = loadToggles();
   t[itemId] = shouldCraft;
-  localStorage.setItem(TOGGLES_KEY, JSON.stringify(t));
+  localStorage.setItem(togglesKey(), JSON.stringify(t));
 }
 
 export function getCraftToggle(itemId) {
