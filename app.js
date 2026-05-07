@@ -403,9 +403,6 @@ function updateCacheStats() {
 
 // --- Inventory Panel ---
 
-invPanelToggle.addEventListener('click', () => {
-  invPanel.classList.toggle('collapsed');
-});
 
 // Inventory search autocomplete
 invSearch.addEventListener('input', () => {

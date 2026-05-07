@@ -37,94 +37,100 @@
   </header>
 
   <main>
+    <div class="layout">
 
-    <!-- Search -->
-    <section class="search-section">
-      <div class="search-wrap">
-        <input type="text" id="search-input" class="search-input" placeholder="Search any craftable item across all professions..." autocomplete="off" spellcheck="false">
-        <div id="autocomplete" class="autocomplete hidden"></div>
-      </div>
-    </section>
-
-    <!-- Selected item + quantity -->
-    <section id="item-section" class="item-section hidden">
-      <div class="item-header">
-        <img id="item-icon" class="item-icon" src="" alt="">
-        <div class="item-meta">
-          <a id="item-name" class="item-name" href="#" target="_blank" rel="noopener"></a>
-          <span id="item-profession" class="profession-badge"></span>
+      <!-- LEFT COLUMN: My Materials / Bank -->
+      <div class="col-left" id="inv-panel">
+        <div class="col-header">
+          <h2>My Materials <span class="inv-count" id="inv-count"></span></h2>
         </div>
-        <div class="quantity-wrap">
-          <label for="quantity-input">Quantity</label>
-          <div class="quantity-controls">
-            <button class="qty-btn" id="qty-down">-</button>
-            <input type="number" id="quantity-input" class="quantity-input" value="1" min="1" max="9999">
-            <button class="qty-btn" id="qty-up">+</button>
+        <div id="inv-panel-body">
+          <div class="inv-add-row">
+            <div class="inv-search-wrap">
+              <input type="text" id="inv-search" class="inv-search-input" placeholder="Search item to add..." autocomplete="off">
+              <div id="inv-autocomplete" class="autocomplete hidden"></div>
+            </div>
+            <input type="number" id="inv-qty-input" class="inv-qty" placeholder="Qty" min="1">
+            <button id="inv-add-btn" class="btn-secondary">Add</button>
+          </div>
+          <div id="inv-list">
+            <div class="inv-empty">No materials yet. Search above to add what's in your bank.</div>
+          </div>
+          <div class="inv-footer" id="inv-footer" style="display:none">
+            <button id="inv-clear-all-btn" class="btn-ghost">Clear All</button>
           </div>
         </div>
-        <button id="add-queue-btn" class="btn-secondary">+ Add to Queue</button>
       </div>
-    </section>
 
-    <!-- Loading indicator -->
-    <div id="loading" class="loading hidden">
-      <div class="spinner"></div>
-      <span>Fetching recipe data from WoWHead...</span>
+      <!-- RIGHT COLUMN: Craft planner + results -->
+      <div class="col-right">
+
+        <!-- Search for item to craft -->
+        <section class="search-section">
+          <div class="search-wrap">
+            <input type="text" id="search-input" class="search-input" placeholder="Search any craftable item..." autocomplete="off" spellcheck="false">
+            <div id="autocomplete" class="autocomplete hidden"></div>
+          </div>
+        </section>
+
+        <!-- Selected item + quantity -->
+        <section id="item-section" class="item-section hidden">
+          <div class="item-header">
+            <img id="item-icon" class="item-icon" src="" alt="">
+            <div class="item-meta">
+              <a id="item-name" class="item-name" href="#" target="_blank" rel="noopener"></a>
+              <span id="item-profession" class="profession-badge"></span>
+            </div>
+            <div class="quantity-wrap">
+              <label for="quantity-input">Quantity</label>
+              <div class="quantity-controls">
+                <button class="qty-btn" id="qty-down">-</button>
+                <input type="number" id="quantity-input" class="quantity-input" value="1" min="1" max="9999">
+                <button class="qty-btn" id="qty-up">+</button>
+              </div>
+            </div>
+            <button id="add-queue-btn" class="btn-secondary">+ Add to Queue</button>
+          </div>
+        </section>
+
+        <!-- Loading indicator -->
+        <div id="loading" class="loading hidden">
+          <div class="spinner"></div>
+          <span>Fetching recipe data from WoWHead...</span>
+        </div>
+
+        <!-- Craft Queue -->
+        <section id="queue-section" class="panel-section hidden">
+          <div class="section-header">
+            <h2>Craft Queue</h2>
+            <button id="clear-queue-btn" class="btn-ghost">Clear Queue</button>
+          </div>
+          <div id="queue-list"></div>
+        </section>
+
+        <!-- Materials table -->
+        <section id="materials-section" class="panel-section hidden">
+          <div class="section-header">
+            <h2>Materials Required</h2>
+            <button id="clear-inventory-btn" class="btn-ghost">Clear My Materials</button>
+          </div>
+          <div class="materials-legend">
+            <span>Item</span><span>Required</span><span>On Hand</span><span>Still Need</span><span>Craft?</span>
+          </div>
+          <div id="material-list"></div>
+        </section>
+
+        <!-- Shopping list -->
+        <section id="shopping-section" class="panel-section hidden">
+          <div class="section-header">
+            <h2>Shopping List</h2>
+            <button id="copy-list-btn" class="btn-secondary">Copy to Clipboard</button>
+          </div>
+          <div id="shopping-list"></div>
+        </section>
+
+      </div>
     </div>
-
-    <!-- Materials table -->
-    <section id="materials-section" class="materials-section hidden">
-      <div class="section-header">
-        <h2>Materials Required</h2>
-        <button id="clear-inventory-btn" class="btn-ghost">Clear Inventory</button>
-      </div>
-      <div class="materials-legend">
-        <span>Item</span><span>Required</span><span>On Hand</span><span>Still Need</span><span>Craft?</span>
-      </div>
-      <div id="material-list"></div>
-    </section>
-
-    <!-- Shopping list -->
-    <section id="shopping-section" class="shopping-section hidden">
-      <div class="section-header">
-        <h2>Shopping List</h2>
-        <button id="copy-list-btn" class="btn-secondary">Copy to Clipboard</button>
-      </div>
-      <div id="shopping-list"></div>
-    </section>
-
-    <!-- Queue -->
-    <section id="queue-section" class="queue-section hidden">
-      <div class="section-header">
-        <h2>Craft Queue</h2>
-        <button id="clear-queue-btn" class="btn-ghost">Clear Queue</button>
-      </div>
-      <div id="queue-list"></div>
-    </section>
-
-    <!-- Inventory Manager -->
-    <section id="inv-panel" class="inv-panel">
-      <div class="section-header inv-panel-header" id="inv-panel-toggle">
-        <h2>My Materials <span class="inv-count" id="inv-count"></span></h2>
-        <span class="inv-toggle-arrow" id="inv-arrow">&#9660;</span>
-      </div>
-      <div id="inv-panel-body">
-        <p class="inv-hint">Log what you already have. These amounts carry over to any item you calculate.</p>
-        <div class="inv-add-row">
-          <div class="inv-search-wrap">
-            <input type="text" id="inv-search" class="inv-search-input" placeholder="Search item to add..." autocomplete="off">
-            <div id="inv-autocomplete" class="autocomplete hidden"></div>
-          </div>
-          <input type="number" id="inv-qty-input" class="inv-qty" placeholder="Qty" min="1">
-          <button id="inv-add-btn" class="btn-secondary">Add</button>
-        </div>
-        <div id="inv-list"></div>
-        <div class="inv-footer" id="inv-footer" style="display:none">
-          <button id="inv-clear-all-btn" class="btn-ghost">Clear All</button>
-        </div>
-      </div>
-    </section>
-
   </main>
 
   <footer>
